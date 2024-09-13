@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using System.Diagnostics;
+using Newtonsoft.Json;
 
 namespace backup_data;
 
@@ -71,6 +72,43 @@ class Program
             MoveDate(path);
         }
 
+        Zip();
+    }
+
+    static void Zip()
+    {
+        string inputPath = _dailyBackupPath;
+        string outputPath = $"{_dailyBackupPath}.7z";
+
+        try
+        {
+            // Construct the p7zip command
+            string command = $"7za a -t7z \"{outputPath}\" \"{inputPath}\"";
+
+            // Execute the command
+            var psi = new ProcessStartInfo("bash", $"-c \"{command}\"")
+            {
+                RedirectStandardError = true,
+                UseShellExecute = false
+            };
+
+            using Process process = Process.Start(psi);
+            process.WaitForExit();
+
+            if (process.ExitCode != 0)
+            {
+                Console.WriteLine($"Error: Command failed with exit code {process.ExitCode}");
+                Console.WriteLine(process.StandardError.ReadToEnd());
+            }
+            else
+            {
+                Console.WriteLine("Archive created successfully.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
     }
 
     private static void MoveDate(string path)
@@ -142,7 +180,7 @@ class Program
         try
         {
             var direcrotyInfo = new DirectoryInfo(_dailyPath);
-            var file = direcrotyInfo.GetFiles("*.bak").LastOrDefault();
+            var file = direcrotyInfo.GetFiles("*.7z").LastOrDefault();
 
             File.Move(file.FullName, Path.Combine(_weeklyPath, file.Name));
 
