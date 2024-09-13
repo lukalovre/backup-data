@@ -6,6 +6,8 @@ class Program
 {
     private static string _dailyPath = null!;
     private static string _weeklyPath = null!;
+    private static Settings _settings;
+    private static string _dailyBackupPath;
 
     public record Settings
     {
@@ -16,11 +18,29 @@ class Program
 
     public static string SettingsFilePath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Settings.json");
 
-    static void Main(string[] args)
+    static void Main()
     {
-        var settings = LoadSettings();
+        _settings = LoadSettings();
 
-        var rootPath = Path.Combine(settings.BackupLocation, settings.BackupName);
+        CreateDirectories();
+
+        var name = $"{_settings.BackupName}_{DateTime.Now:yyyy_MM_dd}";
+        _dailyBackupPath = Path.Combine(_dailyPath, name);
+
+        if (Directory.Exists(_dailyBackupPath))
+        {
+            return;
+        }
+
+        MakeBackup();
+
+        CheckWeekly();
+        ChackDaily();
+    }
+
+    private static void CreateDirectories()
+    {
+        var rootPath = Path.Combine(_settings.BackupLocation, _settings.BackupName);
 
         if (!Directory.Exists(rootPath))
         {
@@ -40,24 +60,38 @@ class Program
         {
             Directory.CreateDirectory(_weeklyPath);
         }
-
-        var name = $"{settings.BackupName}_{DateTime.Now:yyyy_MM_dd}";
-
-        var path = Path.Combine(_dailyPath, name);
-
-        if (File.Exists(path))
-        {
-            return;
-        }
-
-        MakeBackup();
-
-        CheckWeekly();
-        ChackDaily();
     }
 
     private static void MakeBackup()
     {
+        Directory.CreateDirectory(_dailyBackupPath);
+
+        foreach (var path in _settings.BackupPaths)
+        {
+            MoveDate(path);
+        }
+
+    }
+
+    private static void MoveDate(string path)
+    {
+        var directory = new DirectoryInfo(path);
+        var files = directory.GetFiles("*.tsv");
+
+        foreach (var file in files)
+        {
+            var source = file.FullName;
+            var destination = Path.Combine(_dailyBackupPath, file.Directory.Name, file.Name);
+
+            var destinationDirectory = Path.GetDirectoryName(destination);
+
+            if (!Directory.Exists(destinationDirectory))
+            {
+                Directory.CreateDirectory(destinationDirectory);
+            }
+
+            File.Copy(source, destination);
+        }
     }
 
     private static void ChackDaily()
